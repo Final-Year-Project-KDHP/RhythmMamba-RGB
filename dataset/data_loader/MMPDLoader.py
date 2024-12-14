@@ -8,7 +8,7 @@ import glob
 import numpy as np
 import re
 
-from scipy.__config__ import get_info
+# from scipy.__config__ import get_info
 from .BaseLoader import BaseLoader
 from multiprocessing import Pool, Process, Value, Array, Manager
 from tqdm import tqdm
@@ -266,4 +266,3 @@ class MMPDLoader(BaseLoader):
             "The following makeup label is not supported: {0}".format(information[7]))
 
         return light, motion ,exercise, skin_color, gender, glasser, hair_cover, makeup
-
