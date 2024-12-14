@@ -7,3 +7,4 @@ import neural_methods.trainer.BigSmallTrainer
 import neural_methods.trainer.PhysFormerTrainer
 import neural_methods.trainer.RhythmFormerTrainer
 import neural_methods.trainer.RhythmMambaTrainer
+import neural_methods.trainer.RGBMambaTrainer
