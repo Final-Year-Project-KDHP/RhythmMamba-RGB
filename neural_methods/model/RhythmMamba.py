@@ -329,9 +329,12 @@ class RhythmMamba(nn.Module):
         x = rearrange(x, 'b c t -> b t c')
         print("After Rearrange:", x.shape)
 
-        for i,blk in self.blocks:
+
+        i=0
+        for blk in self.blocks:
             x = blk(x)
             print(f"After Block {i+1}:", x.shape)
+            i+=1
 
         rPPG = x.permute(0,2,1) 
         rPPG = self.upsample(rPPG)
