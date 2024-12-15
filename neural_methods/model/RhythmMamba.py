@@ -306,25 +306,41 @@ class RhythmMamba(nn.Module):
 
     def forward(self, x):
         B, D, C, H, W = x.shape
+        print("Input Shape:", x.shape)  # Shape before Fusion_Stem
 
         x = self.Fusion_Stem(x)    #[N*D C H/8 W/8]
+        print("After Fusion_Stem:", x.shape)
+
         x = x.view(B,D,self.embed_dim//4,H//8,W//8).permute(0,2,1,3,4)
+        print("After View and Permute:", x.shape)
+
         x = self.stem3(x)
+        print("After stem3:", x.shape)
 
         mask = torch.sigmoid(x)
         mask = self.attn_mask(mask)
         x = x * mask
+        print("After Attention Masking:", x.shape)
 
         x = torch.mean(x,4)
         x = torch.mean(x,3)
-        x = rearrange(x, 'b c t -> b t c')
+        print("After Mean Pooling:", x.shape)
 
-        for blk in self.blocks:
+        x = rearrange(x, 'b c t -> b t c')
+        print("After Rearrange:", x.shape)
+
+        for i,blk in self.blocks:
             x = blk(x)
+            print(f"After Block {i+1}:", x.shape)
 
         rPPG = x.permute(0,2,1) 
         rPPG = self.upsample(rPPG)
+        print("After Upsample:", rPPG.shape)
+
         rPPG = self.ConvBlockLast(rPPG)    #[N, 1, D]
+        print("After ConvBlockLast:", rPPG.shape)
+
         rPPG = rPPG.squeeze(1)
+        print("Final rPPG Shape:", rPPG.shape)
 
         return rPPG
