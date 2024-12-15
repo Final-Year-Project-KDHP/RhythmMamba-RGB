@@ -11,11 +11,11 @@ TRAIN:
     DATASET: PURE
     DO_PREPROCESS: False               # if first time, should be true
     DATA_FORMAT: NDCHW
-    DATA_PATH: "/experiment0/user/DataSet/PURE/"          # Raw dataset path, need to be updated
-    CACHED_PATH: "../dataset/PURE/"    # Processed dataset save path, need to be updated
+    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"          # Raw dataset path, need to be updated
+    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
     BEGIN: 0.0
-    END: 0.6
+    END: 0.8
     PREPROCESS :
       DATA_TYPE: ['Standardized' ]
       LABEL_TYPE: Standardized
@@ -38,10 +38,10 @@ VALID:
     DATASET: PURE
     DO_PREPROCESS: False                  # if first time, should be true
     DATA_FORMAT: NDCHW
-    DATA_PATH: "/experiment0/user/DataSet/PURE/"          # Raw dataset path, need to be updated
-    CACHED_PATH: "../dataset/PURE/"    # Processed dataset save path, need to be updated
+    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"          # Raw dataset path, need to be updated
+    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
-    BEGIN: 0.6
+    BEGIN: 0.8
     END: 1.0
     PREPROCESS:
       DATA_TYPE: [ 'Standardized' ]
@@ -61,16 +61,16 @@ VALID:
         W: 128
 TEST:
   METRICS: ['MAE','RMSE','MAPE','Pearson','SNR']
-  USE_LAST_EPOCH: True                      # to use provided validation dataset to find the best epoch, should be false
+  USE_LAST_EPOCH: False                      # to use provided validation dataset to find the best epoch, should be false
   DATA:
     FS: 30
     DATASET: PURE
     DO_PREPROCESS: False                    # if first time, should be true
     DATA_FORMAT: NDCHW
-    DATA_PATH: "/experiment0/user/DataSet/PURE/"          # Raw dataset path, need to be updated
-    CACHED_PATH: "../dataset/PURE/"    # Processed dataset save path, need to be updated
+    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"          # Raw dataset path, need to be updated
+    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
-    BEGIN: 0.6
+    BEGIN: 0.8
     END: 1.0
     PREPROCESS:
       DATA_TYPE: [ 'Standardized' ]
