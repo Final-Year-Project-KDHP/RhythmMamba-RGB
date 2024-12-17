@@ -54,8 +54,60 @@ class RMambaTrainer(BaseTrainer):
         data_r = data[:, :, 0:1, :, :]  # Extract R channel (index 0)
         return data_r
 
+    def data_augmentation(self, data, labels):
+        """
+        Perform data augmentation by applying temporal transformations.
+        Args:
+            data: Input data tensor [N, D, C, H, W].
+            labels: Ground truth labels [N, D].
+        Returns:
+            Augmented data and labels.
+        """
+        N, D, C, H, W = data.shape
+        data_aug = np.zeros((N, D, C, H, W))
+        labels_aug = np.zeros((N, D))
+        for idx in range(N):
+            gt_hr_fft, _ = calculate_hr(labels[idx], labels[idx], diff_flag=self.diff_flag, fs=self.config.VALID.DATA.FS)
+            rand1 = random.random()
+            rand2 = random.random()
+            rand3 = random.randint(0, D // 2 - 1)
+
+            if rand1 < 0.5:
+                if gt_hr_fft > 90:
+                    for tt in range(rand3, rand3 + D):
+                        if tt % 2 == 0:
+                            data_aug[idx, tt - rand3, :, :, :] = data[idx, tt // 2, :, :, :]
+                            labels_aug[idx, tt - rand3] = labels[idx, tt // 2]
+                        else:
+                            data_aug[idx, tt - rand3, :, :, :] = (
+                                data[idx, tt // 2, :, :, :] / 2 + data[idx, tt // 2 + 1, :, :, :] / 2
+                            )
+                            labels_aug[idx, tt - rand3] = (
+                                labels[idx, tt // 2] / 2 + labels[idx, tt // 2 + 1] / 2
+                            )
+                elif gt_hr_fft < 75:
+                    for tt in range(D):
+                        if tt < D / 2:
+                            data_aug[idx, tt, :, :, :] = data[idx, tt * 2, :, :, :]
+                            labels_aug[idx, tt] = labels[idx, tt * 2]
+                        else:
+                            data_aug[idx, tt, :, :, :] = data_aug[idx, tt - D // 2, :, :, :]
+                            labels_aug[idx, tt] = labels_aug[idx, tt - D // 2]
+                else:
+                    data_aug[idx] = data[idx]
+                    labels_aug[idx] = labels[idx]
+            else:
+                data_aug[idx] = data[idx]
+                labels_aug[idx] = labels[idx]
+
+        data_aug = torch.tensor(data_aug).float()
+        labels_aug = torch.tensor(labels_aug).float()
+        if rand2 < 0.5:
+            data_aug = torch.flip(data_aug, dims=[4])
+        return data_aug, labels_aug
+
     def train(self, data_loader):
-        """Training routine for model"""
+        """Training routine for model."""
         if data_loader["train"] is None:
             raise ValueError("No data for train")
 
@@ -64,15 +116,13 @@ class RMambaTrainer(BaseTrainer):
             print(f"====Training Epoch: {epoch}====")
             self.model.train()
 
-            # Model Training
             tbar = tqdm(data_loader["train"], ncols=80)
             for idx, batch in enumerate(tbar):
                 tbar.set_description("Train epoch %s" % epoch)
                 data, labels = batch[0].float(), batch[1].float()
-                N, D, C, H, W = data.shape
 
                 # Preprocess to extract R channel
-                data = self.preprocess_red_channel(data)  # Shape: [N, D, 1, H, W]
+                data = self.preprocess_red_channel(data)
 
                 if self.config.TRAIN.AUG:
                     data, labels = self.data_augmentation(data, labels)
@@ -82,97 +132,15 @@ class RMambaTrainer(BaseTrainer):
 
                 self.optimizer.zero_grad()
                 pred_ppg = self.model(data)
-                pred_ppg = (pred_ppg - torch.mean(pred_ppg, axis=-1).view(-1, 1)) / torch.std(pred_ppg, axis=-1).view(-1, 1)  # normalize
+                pred_ppg = (pred_ppg - torch.mean(pred_ppg, axis=-1).view(-1, 1)) / torch.std(pred_ppg, axis=-1).view(-1, 1)
 
                 loss = 0.0
-                for ib in range(N):
-                    loss = loss + self.criterion(pred_ppg[ib], labels[ib], epoch, self.config.TRAIN.DATA.FS, self.diff_flag)
-                loss = loss / N
+                for ib in range(data.shape[0]):
+                    loss += self.criterion(pred_ppg[ib], labels[ib], epoch, self.config.TRAIN.DATA.FS, self.diff_flag)
+                loss = loss / data.shape[0]
                 loss.backward()
                 self.optimizer.step()
                 self.scheduler.step()
                 tbar.set_postfix(loss=loss.item())
+
             self.save_model(epoch)
-            if not self.config.TEST.USE_LAST_EPOCH: 
-                valid_loss = self.valid(data_loader)
-                print('validation loss: ', valid_loss)
-                if self.min_valid_loss is None or valid_loss < self.min_valid_loss:
-                    self.min_valid_loss = valid_loss
-                    self.best_epoch = epoch
-                    print("Update best model! Best epoch: {}".format(self.best_epoch))
-        if not self.config.TEST.USE_LAST_EPOCH: 
-            print("best trained epoch: {}, min_val_loss: {}".format(self.best_epoch, self.min_valid_loss))  
-
-    def valid(self, data_loader):
-        """ Model evaluation on the validation dataset."""
-        if data_loader["valid"] is None:
-            raise ValueError("No data for valid")
-        print('')
-        print("===Validating===")
-        valid_loss = []
-        self.model.eval()
-        valid_step = 0
-        with torch.no_grad():
-            vbar = tqdm(data_loader["valid"], ncols=80)
-            for valid_idx, valid_batch in enumerate(vbar):
-                vbar.set_description("Validation")
-                data_valid, labels_valid = valid_batch[0].to(self.device), valid_batch[1].to(self.device)
-
-                # Preprocess to extract R channel
-                data_valid = self.preprocess_red_channel(data_valid)
-
-                N, D, C, H, W = data_valid.shape
-                pred_ppg_valid = self.model(data_valid)
-                pred_ppg_valid = (pred_ppg_valid - torch.mean(pred_ppg_valid, axis=-1).view(-1, 1)) / torch.std(pred_ppg_valid, axis=-1).view(-1, 1)
-                for ib in range(N):
-                    loss = self.criterion(pred_ppg_valid[ib], labels_valid[ib], self.config.TRAIN.EPOCHS, self.config.VALID.DATA.FS, self.diff_flag)
-                    valid_loss.append(loss.item())
-                    valid_step += 1
-                    vbar.set_postfix(loss=loss.item())
-        return np.mean(np.asarray(valid_loss))
-
-    def test(self, data_loader):
-        """ Model evaluation on the testing dataset."""
-        if data_loader["test"] is None:
-            raise ValueError("No data for test")
-
-        print('')
-        print("===Testing===")
-        if self.config.TOOLBOX_MODE == "only_test":
-            if not os.path.exists(self.config.INFERENCE.MODEL_PATH):
-                raise ValueError("Inference model path error! Please check INFERENCE.MODEL_PATH in your yaml.")
-            self.model.load_state_dict(torch.load(self.config.INFERENCE.MODEL_PATH))
-            print("Testing uses pretrained model!")
-        else:
-            best_model_path = os.path.join(
-                self.model_dir, self.model_file_name + '_Epoch' + str(self.best_epoch) + '.pth')
-            print("Testing uses best epoch model!")
-            print(best_model_path)
-            self.model.load_state_dict(torch.load(best_model_path))
-
-        self.model = self.model.to(self.config.DEVICE)
-        self.model.eval()
-        with torch.no_grad():
-            predictions = dict()
-            labels = dict()
-            for _, test_batch in enumerate(data_loader['test']):
-                data_test, labels_test = test_batch[0].to(self.config.DEVICE), test_batch[1].to(self.config.DEVICE)
-
-                # Preprocess to extract R channel
-                data_test = self.preprocess_red_channel(data_test)
-
-                pred_ppg_test = self.model(data_test)
-                pred_ppg_test = (pred_ppg_test - torch.mean(pred_ppg_test, axis=-1).view(-1, 1)) / torch.std(pred_ppg_test, axis=-1).view(-1, 1)
-
-                subj_index = test_batch[2][0]
-                predictions[subj_index] = pred_ppg_test.cpu().numpy()
-                labels[subj_index] = labels_test.cpu().numpy()
-            print(' ')
-            calculate_metrics(predictions, labels, self.config)
-
-    def save_model(self, index):
-        if not os.path.exists(self.model_dir):
-            os.makedirs(self.model_dir)
-        model_path = os.path.join(self.model_dir, self.model_file_name + '_Epoch' + str(index) + '.pth')
-        torch.save(self.model.state_dict(), model_path)
-        print('Saved Model Path: ', model_path)
