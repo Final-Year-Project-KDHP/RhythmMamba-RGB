@@ -65,6 +65,8 @@ def train_and_test(config, data_loader_dict):
     elif config.MODEL.NAME == "RGBMamba":
         #from neural_methods.trainer.RGBMambaTrainer import RGBMambaTrainer
         model_trainer = trainer.RGBMambaTrainer.RGBMambaTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == "RMamba":
+        model_trainer = trainer.RMambaTrainer.RMambaTrainer(config, data_loader_dict)
     else:
         raise ValueError('Your Model is Not Supported  Yet!')
     model_trainer.train(data_loader_dict)
@@ -91,7 +93,9 @@ def test(config, data_loader_dict):
         model_trainer = trainer.RhythmMambaTrainer.RhythmMambaTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == "RGBMamba":
         #from neural_methods.trainer.RGBMambaTrainer import RGBMambaTrainer
-        model_trainer = RGBMambaTrainer(config, data_loader_dict) 
+        model_trainer = RGBMambaTrainer.RGBMambaTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == "RMamba":
+        model_trainer = trainer.RMambaTrainer.RMambaTrainer(config, data_loader_dict)
     else:
         raise ValueError('Your Model is Not Supported  Yet!')
     model_trainer.test(data_loader_dict)
