@@ -42,6 +42,19 @@ class RMambaTrainer(BaseTrainer):
             self.model = torch.nn.DataParallel(self.model, device_ids=list(range(config.NUM_OF_GPU_TRAIN)))
         else:
             raise ValueError("RMamba trainer initialized in incorrect toolbox mode!")
+    
+    def save_model(self, index):
+        """
+        Save the model checkpoint at the specified epoch.
+        Args:
+            index: Epoch index for naming the checkpoint file.
+        """
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+        model_path = os.path.join(
+            self.model_dir, self.model_file_name + '_Epoch' + str(index) + '.pth')
+        torch.save(self.model.state_dict(), model_path)
+        print('Saved Model Path: ', model_path)
 
     def preprocess_red_channel(self, data):
         """

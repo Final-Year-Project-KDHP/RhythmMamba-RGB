@@ -23,7 +23,7 @@ class Fusion_Stem(nn.Module):
         )
 
         self.stem12 = nn.Sequential(
-            nn.Conv2d(12, dim // 2, kernel_size=7, stride=2, padding=3),
+            nn.Conv2d(4, dim // 2, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(dim // 2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=False)
@@ -54,7 +54,7 @@ class Fusion_Stem(nn.Module):
         x4 = torch.cat([x[:, 1:, :, :, :], x[:, D - 1:, :, :, :]], 1)
         x5 = torch.cat([x[:, 2:, :, :, :], x[:, D - 1:, :, :, :], x[:, D - 1:, :, :, :]], 1)
 
-        x_diff = self.stem12(torch.cat([x2 - x1, x3 - x2, x4 - x3, x5 - x4], 2).view(N * D, 12, H, W))
+        x_diff = self.stem12(torch.cat([x2 - x1, x3 - x2, x4 - x3, x5 - x4], 2).view(N * D, 4, H, W))
         x3 = x3.contiguous().view(N * D, C, H, W)
         x = self.stem11(x3)
 
