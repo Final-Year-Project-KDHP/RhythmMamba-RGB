@@ -2,7 +2,7 @@ BASE: ['']
 TOOLBOX_MODE: "train_and_test"      # "train_and_test"  or "only_test"
 TRAIN:
   BATCH_SIZE: 16
-  EPOCHS: 30
+  EPOCHS: 2 #30
   LR: 3e-4
   MODEL_FILE_NAME: PURE_PURE_PURE_RMamba
   AUG: 1
