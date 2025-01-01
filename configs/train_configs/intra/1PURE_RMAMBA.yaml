@@ -60,6 +60,8 @@ VALID:
         H: 128
         W: 128
 TEST:
+  METRICS: ['MAE','RMSE','MAPE','Pearson','SNR']
+  USE_LAST_EPOCH: False                      # to use provided validation dataset to find the best epoch, should be false
   DATA:
     FS: 30
     DATASET: PURE
