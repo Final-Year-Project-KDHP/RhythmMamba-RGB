@@ -1,23 +1,23 @@
 BASE: ['']
-TOOLBOX_MODE: "train_and_test"      # "train_and_test"  or "only_test"
+TOOLBOX_MODE: "train_and_test"  # or "only_test"
 TRAIN:
   BATCH_SIZE: 16
-  EPOCHS: 30
+  EPOCHS: 2     # Adjust as needed (e.g., 30)
   LR: 3e-4
-  MODEL_FILE_NAME: PURE_PURE_PURE_RGBMamba
+  MODEL_FILE_NAME: PURE_PURE_PURE_RGBMamba  # Adjust if desired
   AUG: 1
   DATA:
     FS: 30
     DATASET: PURE
-    DO_PREPROCESS: False               # if first time, should be true
+    DO_PREPROCESS: False       # If first time, should be True
     DATA_FORMAT: NDCHW
-    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"          # Raw dataset path, need to be updated
-    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"    # Processed dataset save path, need to be updated
+    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"  # Update as needed
+    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"               # Update as needed
     EXP_DATA_NAME: ""
     BEGIN: 0.0
     END: 0.8
-    PREPROCESS :
-      DATA_TYPE: ['Standardized' ]
+    PREPROCESS:
+      DATA_TYPE: ['Standardized']
       LABEL_TYPE: Standardized
       DO_CHUNK: True
       CHUNK_LENGTH: 160
@@ -27,8 +27,8 @@ TRAIN:
         LARGE_BOX_COEF: 1.5
         DETECTION:
           DO_DYNAMIC_DETECTION: False
-          DYNAMIC_DETECTION_FREQUENCY : 30
-          USE_MEDIAN_FACE_BOX: False    # This should be used ONLY if dynamic detection is used
+          DYNAMIC_DETECTION_FREQUENCY: 30
+          USE_MEDIAN_FACE_BOX: False
       RESIZE:
         H: 128
         W: 128
@@ -36,15 +36,15 @@ VALID:
   DATA:
     FS: 30
     DATASET: PURE
-    DO_PREPROCESS: False                  # if first time, should be true
+    DO_PREPROCESS: False
     DATA_FORMAT: NDCHW
-    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"          # Raw dataset path, need to be updated
-    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"    # Processed dataset save path, need to be updated
+    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"
+    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"
     EXP_DATA_NAME: ""
     BEGIN: 0.8
     END: 1.0
     PREPROCESS:
-      DATA_TYPE: [ 'Standardized' ]
+      DATA_TYPE: ['Standardized']
       LABEL_TYPE: Standardized
       DO_CHUNK: True
       CHUNK_LENGTH: 160
@@ -54,26 +54,26 @@ VALID:
         LARGE_BOX_COEF: 1.5
         DETECTION:
           DO_DYNAMIC_DETECTION: False
-          DYNAMIC_DETECTION_FREQUENCY : 30
-          USE_MEDIAN_FACE_BOX: False    # This should be used ONLY if dynamic detection is used
+          DYNAMIC_DETECTION_FREQUENCY: 30
+          USE_MEDIAN_FACE_BOX: False
       RESIZE:
         H: 128
         W: 128
 TEST:
   METRICS: ['MAE','RMSE','MAPE','Pearson','SNR']
-  USE_LAST_EPOCH: False                      # to use provided validation dataset to find the best epoch, should be false
+  USE_LAST_EPOCH: False  # If False, uses the best epoch found via validation
   DATA:
     FS: 30
     DATASET: PURE
-    DO_PREPROCESS: False                    # if first time, should be true
+    DO_PREPROCESS: False
     DATA_FORMAT: NDCHW
-    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"          # Raw dataset path, need to be updated
-    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"    # Processed dataset save path, need to be updated
+    DATA_PATH: "/content/drive/MyDrive/Datasets/Extracted_Datasets/PURE"
+    CACHED_PATH: "/content/drive/MyDrive/DDCache/RGBMamba"
     EXP_DATA_NAME: ""
     BEGIN: 0.8
     END: 1.0
     PREPROCESS:
-      DATA_TYPE: [ 'Standardized' ]
+      DATA_TYPE: ['Standardized']
       LABEL_TYPE: Standardized
       DO_CHUNK: True
       CHUNK_LENGTH: 160
@@ -83,22 +83,22 @@ TEST:
         LARGE_BOX_COEF: 1.5
         DETECTION:
           DO_DYNAMIC_DETECTION: False
-          DYNAMIC_DETECTION_FREQUENCY : 30
-          USE_MEDIAN_FACE_BOX: False    # This should be used ONLY if dynamic detection is used
+          DYNAMIC_DETECTION_FREQUENCY: 30
+          USE_MEDIAN_FACE_BOX: False
       RESIZE:
         H: 128
         W: 128
-DEVICE: cuda:0
+DEVICE: "cuda:0"
 NUM_OF_GPU_TRAIN: 1
 LOG:
-  PATH: runs/exp
+  PATH: "runs/exp"
 MODEL:
   DROP_RATE: 0.2
-  NAME: RGBMamba
+  NAME: "RGBMamba"  # IMPORTANT: name of the combined model
 INFERENCE:
   BATCH_SIZE: 16
-  EVALUATION_METHOD: "FFT"        # "FFT" or "peak detection"
+  EVALUATION_METHOD: "FFT"      # or "peak detection"
   EVALUATION_WINDOW:
-    USE_SMALLER_WINDOW:  False        # Change this if you'd like an evaluation window smaller than the test video length
-    WINDOW_SIZE: 10        # In seconds
-  MODEL_PATH:   ""
+    USE_SMALLER_WINDOW: False
+    WINDOW_SIZE: 10
+  MODEL_PATH: ""  # Optional: path to a saved model for "only_test" mode

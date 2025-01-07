@@ -1,109 +1,208 @@
-# RGBMamba.py
 import torch
 from torch import nn
 import torch.nn.functional as F
-from functools import partial
-import math
 from einops import rearrange
-from timm.models.layers import trunc_normal_, lecun_normal_, DropPath
-from mamba_ssm.modules.mamba_simple import Mamba
-# Reuse Fusion_Stem, Attention_mask, Frequencydomain_FFN, MambaLayer, Block_mamba from RhythmMamba.py
-# or import them if they are factored out into a separate file.
 
-# Assume we can import them directly from RhythmMamba:
-from neural_methods.model.RhythmMamba import Fusion_Stem, Attention_mask, Frequencydomain_FFN, Block_mamba, _init_weights, segm_init_weights
+# Import the three sub-model classes
+# (Make sure these imports match your actual local paths!)
+from neural_methods.model.RMamba import RMamba
+from neural_methods.model.GMamba import GMamba
+from neural_methods.model.BMamba import BMamba
 
-class RGBMambaBranch(nn.Module):
-    """A single branch that processes one color channel video."""
-    def __init__(self, depth=24, embed_dim=96, mlp_ratio=2, drop_path_rate=0.1, initializer_cfg=None, device=None, dtype=None, **kwargs):
-        super().__init__()
-        self.embed_dim = embed_dim
 
-        # One-channel Fusion Stem (input: N,D,1,H,W)
-        # Adjust Fusion_Stem to handle single-channel input:
-        self.Fusion_Stem = Fusion_Stem(dim=embed_dim//4)
-        self.attn_mask = Attention_mask()
+class FusionBlock(nn.Module):
+    """
+    Example fusion block:
+      - Takes three features each of shape [B, 96, T]
+      - Concatenates along channel dim -> [B, 288, T]
+      - 1D conv layers to reduce to [B, 1, T]
+      - Could add normalization, activation, etc.
+    """
+    def __init__(self, in_channels=288, hidden_channels=96, out_channels=1):
+        super(FusionBlock, self).__init__()
 
-        self.stem3 = nn.Sequential(
-            nn.Conv3d(embed_dim//4, embed_dim, kernel_size=(2, 5, 5), stride=(2, 1, 1),padding=(0,2,2)),
-            nn.BatchNorm3d(embed_dim),
-        )
+        # Example architecture: (Conv1d -> ReLU -> Conv1d)
+        self.conv1 = nn.Conv1d(in_channels, hidden_channels, kernel_size=1)
+        self.relu = nn.ReLU(inplace=True)
+        self.bn1 = nn.BatchNorm1d(hidden_channels)
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
-        inter_dpr = [0.0] + dpr
-        self.blocks = nn.ModuleList([Block_mamba(
-            dim = embed_dim,
-            mlp_ratio = mlp_ratio,
-            drop_path=inter_dpr[i],
-            norm_layer=nn.LayerNorm,
-        ) for i in range(depth)])
-
-        self.apply(segm_init_weights)
-        self.apply(
-            partial(
-                _init_weights,
-                n_layer=depth,
-                **(initializer_cfg if initializer_cfg is not None else {}),
-            )
-        )
+        self.conv2 = nn.Conv1d(hidden_channels, out_channels, kernel_size=1)
+        self.bn2 = nn.BatchNorm1d(out_channels)
 
     def forward(self, x):
-        # x: [B, D, 1, H, W] for this channel
+        """
+        x: [B, in_channels=288, T]
+        return: [B, 1, T]
+        """
+        x = self.conv1(x)          # => [B, hidden_channels, T]
+        x = self.relu(x)
+        x = self.bn1(x)
+
+        x = self.conv2(x)         # => [B, out_channels=1, T]
+        x = self.bn2(x)
+
+        return x
+
+
+class RMambaFeatureExtractor(RMamba):
+    """
+    A thin wrapper around RMamba that returns intermediate
+    features of shape [B, 96, T] (before the final Conv1d).
+    """
+
+    def forward(self, x):
+        """
+        We'll copy over the original forward() from RMamba but
+        STOP before the final ConvBlockLast.
+
+        Output shape should be [B, embed_dim, T] = [B, 96, 2*(D//2)]
+        (Typically T is something like 160.)
+        """
         B, D, C, H, W = x.shape
-        x = self.Fusion_Stem(x)    #[B*D, C', H/8, W/8]
-        x = x.view(B,D,self.embed_dim//4,H//8,W//8).permute(0,2,1,3,4)
+        # 1) Fusion Stem
+        x = self.Fusion_Stem(x)
+        x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
+
+        # 2) 3D Convolution
+        x = self.stem3(x)
+
+        # 3) Attention Mask
+        mask = torch.sigmoid(x)
+        mask = self.attn_mask(mask)
+        x = x * mask
+
+        # 4) Mean Pool across spatial dims
+        x = torch.mean(x, dim=(3, 4))
+
+        # 5) Rearrange to [B, T, C]
+        x = rearrange(x, 'b c t -> b t c')
+
+        # 6) Pass through each Mamba block
+        for blk in self.blocks:
+            x = blk(x)
+
+        # 7) Upsample => shape [B, embed_dim, 2*T]
+        #    Instead of final conv, we just return x as [B, embed_dim, T'].
+        #    So:
+        x = x.permute(0, 2, 1)  # => [B, C=embed_dim, T]
+        x = self.upsample(x)    # => [B, 96, 2T or 2*(D//2)]
+        return x
+
+
+class GMambaFeatureExtractor(GMamba):
+    """
+    Same idea for GMamba: returns features of shape [B, 96, T]
+    before final Conv1d.
+    """
+    def forward(self, x):
+        B, D, C, H, W = x.shape
+        x = self.Fusion_Stem(x)
+        x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
         x = self.stem3(x)
 
         mask = torch.sigmoid(x)
         mask = self.attn_mask(mask)
         x = x * mask
 
-        x = torch.mean(x,4)
-        x = torch.mean(x,3)
+        x = torch.mean(x, dim=(3, 4))
         x = rearrange(x, 'b c t -> b t c')
 
         for blk in self.blocks:
             x = blk(x)
-        # output: [B, T, C]
+
+        x = x.permute(0, 2, 1)
+        x = self.upsample(x)
         return x
 
-class RGBMamba(nn.Module):
-    """RGBMamba model: processes R, G, B channels in parallel and then concatenates."""
-    def __init__(self, 
-                 depth=24, 
-                 embed_dim=96, 
-                 mlp_ratio=2,
-                 drop_rate=0.,
-                 drop_path_rate=0.1,
-                 initializer_cfg=None,
-                 device=None,
-                 dtype=None,
-                 **kwargs):
-        super().__init__()
-        # Create three branches
-        self.R_branch = RGBMambaBranch(depth, embed_dim, mlp_ratio, drop_path_rate, initializer_cfg, device, dtype, **kwargs)
-        self.G_branch = RGBMambaBranch(depth, embed_dim, mlp_ratio, drop_path_rate, initializer_cfg, device, dtype, **kwargs)
-        self.B_branch = RGBMambaBranch(depth, embed_dim, mlp_ratio, drop_path_rate, initializer_cfg, device, dtype, **kwargs)
 
-        self.upsample = nn.Upsample(scale_factor=2)
-        # After concatenation of three streams, dimension is 3 * embed_dim
-        self.ConvBlockLast = nn.Conv1d(embed_dim*3, 1, kernel_size=1,stride=1, padding=0)
+class BMambaFeatureExtractor(BMamba):
+    """
+    Same idea for BMamba: returns features of shape [B, 96, T]
+    before final Conv1d.
+    """
+    def forward(self, x):
+        B, D, C, H, W = x.shape
+        x = self.Fusion_Stem(x)
+        x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
+        x = self.stem3(x)
+
+        mask = torch.sigmoid(x)
+        mask = self.attn_mask(mask)
+        x = x * mask
+
+        x = torch.mean(x, dim=(3, 4))
+        x = rearrange(x, 'b c t -> b t c')
+
+        for blk in self.blocks:
+            x = blk(x)
+
+        x = x.permute(0, 2, 1)
+        x = self.upsample(x)
+        return x
+
+
+class RGBMamba(nn.Module):
+    """
+    Combined model that uses:
+      - RMambaFeatureExtractor on the R channel
+      - GMambaFeatureExtractor on the G channel
+      - BMambaFeatureExtractor on the B channel
+
+    Then fuses the three [B, 96, T] feature maps with a FusionBlock
+    to produce [B, 1, T], finally squeezes to [B, T] and normalizes.
+    """
+    def __init__(self, depth=24, embed_dim=96, mlp_ratio=2, drop_path_rate=0.1):
+        super(RGBMamba, self).__init__()
+
+        # Submodels
+        self.r_sub = RMambaFeatureExtractor(
+            depth=depth,
+            embed_dim=embed_dim,
+            mlp_ratio=mlp_ratio,
+            drop_path_rate=drop_path_rate
+        )
+        self.g_sub = GMambaFeatureExtractor(
+            depth=depth,
+            embed_dim=embed_dim,
+            mlp_ratio=mlp_ratio,
+            drop_path_rate=drop_path_rate
+        )
+        self.b_sub = BMambaFeatureExtractor(
+            depth=depth,
+            embed_dim=embed_dim,
+            mlp_ratio=mlp_ratio,
+            drop_path_rate=drop_path_rate
+        )
+
+        # A simple fusion block
+        # Each submodel outputs [B, 96, T] => fused => [B, 1, T].
+        self.fusion = FusionBlock(in_channels=embed_dim * 3, hidden_channels=embed_dim, out_channels=1)
 
     def forward(self, x):
-        # x: [B, D, C=3, H, W]
-        R = x[:,:,[0],:,:]
-        G = x[:,:,[1],:,:]
-        B = x[:,:,[2],:,:]
+        """
+        x: [B, D, 3, H, W]
+        Output: [B, T] after final normalization
+        """
+        # Split channels for each submodel
+        x_r = x[:, :, 0:1, :, :]  # Red
+        x_g = x[:, :, 1:2, :, :]  # Green
+        x_b = x[:, :, 2:3, :, :]  # Blue
 
-        r_feat = self.R_branch(R) # [B, T, C]
-        g_feat = self.G_branch(G)
-        b_feat = self.B_branch(B)
+        # Get feature maps: each [B, 96, T]
+        feat_r = self.r_sub(x_r)
+        feat_g = self.g_sub(x_g)
+        feat_b = self.b_sub(x_b)
 
-        # Concatenate along feature dimension
-        x_cat = torch.cat([r_feat, g_feat, b_feat], dim=2)  # [B,T, 3C]
+        # Concatenate along channel dim => [B, 288, T]
+        feat_cat = torch.cat([feat_r, feat_g, feat_b], dim=1)
 
-        rPPG = x_cat.permute(0,2,1) # [B,3C,T]
-        rPPG = self.upsample(rPPG)
-        rPPG = self.ConvBlockLast(rPPG)    #[B, 1, D]
-        rPPG = rPPG.squeeze(1)
-        return rPPG
+        # Fuse => [B, 1, T]
+        fused = self.fusion(feat_cat)
+
+        # Squeeze => [B, T]
+        fused = fused.squeeze(1)
+
+        # Final normalization => [B, T]
+        fused = (fused - fused.mean(dim=-1, keepdim=True)) / (fused.std(dim=-1, keepdim=True) + 1e-5)
+
+        return fused

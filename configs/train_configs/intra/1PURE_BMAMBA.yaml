@@ -94,7 +94,7 @@ LOG:
   PATH: runs/exp
 MODEL:
   DROP_RATE: 0.2
-  NAME: RMamba
+  NAME: BMamba
 INFERENCE:
   BATCH_SIZE: 16
   EVALUATION_METHOD: "FFT"        # "FFT" or "peak detection"
