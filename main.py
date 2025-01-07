@@ -98,7 +98,8 @@ def test(config, data_loader_dict):
         model_trainer = trainer.RMambaTrainer.RMambaTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == "GMamba":
         model_trainer = trainer.GMambaTrainer.GMambaTrainer(config, data_loader_dict)
-
+    elif config.MODEL.NAME == "BMamba":
+        model_trainer = trainer.BMambaTrainer.BMambaTrainer(config, data_loader_dict)
     else:
         raise ValueError('Your Model is Not Supported  Yet!')
     model_trainer.test(data_loader_dict)
