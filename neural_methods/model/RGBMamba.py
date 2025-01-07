@@ -58,6 +58,9 @@ class RMambaFeatureExtractor(RMamba):
         Output shape should be [B, embed_dim, T] = [B, 96, 2*(D//2)]
         (Typically T is something like 160.)
         """
+        print(f"[DEBUG] Entering RMambaFeatureExtractor, x.shape = {x.shape}")
+        
+
         B, D, C, H, W = x.shape
         # 1) Fusion Stem
         x = self.Fusion_Stem(x)
@@ -95,6 +98,9 @@ class GMambaFeatureExtractor(GMamba):
     before final Conv1d.
     """
     def forward(self, x):
+        print(f"[DEBUG] Entering GMambaFeatureExtractor, x.shape = {x.shape}")
+
+
         B, D, C, H, W = x.shape
         x = self.Fusion_Stem(x)
         x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
@@ -121,6 +127,9 @@ class BMambaFeatureExtractor(BMamba):
     before final Conv1d.
     """
     def forward(self, x):
+
+        print(f"[DEBUG] Entering BMambaFeatureExtractor, x.shape = {x.shape}")
+
         B, D, C, H, W = x.shape
         x = self.Fusion_Stem(x)
         x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
