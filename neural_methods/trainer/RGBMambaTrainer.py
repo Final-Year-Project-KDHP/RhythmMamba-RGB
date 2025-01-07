@@ -141,6 +141,9 @@ class RGBMambaTrainer(BaseTrainer):
                 if self.config.TRAIN.AUG:
                     data, labels = self.data_augmentation(data, labels)
 
+                print(f"[DEBUG Trainer] data.shape after augmentation = {data.shape}")  # <--- Add this
+                    # Should be [B, D, 3, H, W]
+
                 data = data.to(self.device)
                 labels = labels.to(self.device)
 

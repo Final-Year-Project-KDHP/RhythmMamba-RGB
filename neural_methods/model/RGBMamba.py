@@ -62,6 +62,10 @@ class RMambaFeatureExtractor(RMamba):
         
 
         B, D, C, H, W = x.shape
+
+        print(f"[DEBUG RMambaFeatureExtractor] B={B},D={D},C={C},H={H},W={W}")
+
+
         # 1) Fusion Stem
         x = self.Fusion_Stem(x)
         x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
@@ -102,6 +106,9 @@ class GMambaFeatureExtractor(GMamba):
 
 
         B, D, C, H, W = x.shape
+
+        print(f"[DEBUG GMambaFeatureExtractor] B={B},D={D},C={C},H={H},W={W}")
+
         x = self.Fusion_Stem(x)
         x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
         x = self.stem3(x)
@@ -131,6 +138,10 @@ class BMambaFeatureExtractor(BMamba):
         print(f"[DEBUG] Entering BMambaFeatureExtractor, x.shape = {x.shape}")
 
         B, D, C, H, W = x.shape
+
+        print(f"[DEBUG BMambaFeatureExtractor] B={B},D={D},C={C},H={H},W={W}")
+
+
         x = self.Fusion_Stem(x)
         x = x.view(B, D, self.embed_dim // 4, H // 8, W // 8).permute(0, 2, 1, 3, 4)
         x = self.stem3(x)
@@ -192,10 +203,15 @@ class RGBMamba(nn.Module):
         x: [B, D, 3, H, W]
         Output: [B, T] after final normalization
         """
+
+        print(f"[DEBUG RGBMamba] input x.shape = {x.shape}")
+
         # Split channels for each submodel
         x_r = x[:, :, 0:1, :, :]  # Red
         x_g = x[:, :, 1:2, :, :]  # Green
         x_b = x[:, :, 2:3, :, :]  # Blue
+
+        print(f"[DEBUG RGBMamba] x_r.shape = {x_r.shape}, x_g.shape = {x_g.shape}, x_b.shape = {x_b.shape}")
 
         # Get feature maps: each [B, 96, T]
         feat_r = self.r_sub(x_r)
