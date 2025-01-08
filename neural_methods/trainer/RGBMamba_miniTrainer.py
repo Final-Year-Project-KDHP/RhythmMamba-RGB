@@ -14,7 +14,7 @@ from neural_methods.trainer.BaseTrainer import BaseTrainer
 from neural_methods.loss.TorchLossComputer import Hybrid_Loss
 
 
-class RGBMambaTrainer_mini(BaseTrainer):
+class RGBMamba_miniTrainer(BaseTrainer):
     """
     Trainer for the mini version of RGBMamba. 
     Its logic is nearly the same as the original trainer, 
