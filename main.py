@@ -76,7 +76,7 @@ def train_and_test(config, data_loader_dict):
     else:
         print("Model name you configured:",config.MODEL.NAME)
         raise ValueError('Your Model is Not Supported  Yet!')
-    model_trainer.test(data_loader_dict)
+    model_trainer.train(data_loader_dict)
 
 
 def test(config, data_loader_dict):
