@@ -110,6 +110,8 @@ def test(config, data_loader_dict):
         model_trainer = trainer.BMambaTrainer.BMambaTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == "RGBMamba_mini":
         model_trainer = trainer.RGBMamba_miniTrainer.RGBMamba_miniTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == "RGBMamba_miniA":
+        model_trainer = trainer.RGBMamba_miniATrainer.RGBMamba_miniATrainer(config, data_loader_dict)
     else:
         print("Model name you configured:",config.MODEL.NAME)
         raise ValueError('Your Model is Not Supported  Yet!')

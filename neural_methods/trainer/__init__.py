@@ -12,3 +12,4 @@ import neural_methods.trainer.RMambaTrainer
 import neural_methods.trainer.GMambaTrainer
 import neural_methods.trainer.BMambaTrainer
 import neural_methods.trainer.RGBMamba_miniTrainer
+import neural_methods.trainer.RGBMamba_miniATrainer
